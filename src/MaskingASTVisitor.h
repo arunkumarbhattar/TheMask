@@ -19,6 +19,7 @@ public:
     bool VisitBinaryOperator(clang::BinaryOperator *Op);
 
 private:
+    bool InCryptoFunction = false;
     clang::ASTContext &Context;
     clang::Rewriter &TheRewriter;
     std::set<clang::VarDecl *> SensitiveVars;

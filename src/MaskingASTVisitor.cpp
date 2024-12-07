@@ -1,20 +1,30 @@
-// src/MaskingASTVisitor.cpp
 #include "MaskingASTVisitor.h"
+#include "SMTMasker.h"
+#include "Verifier.h"
+#include <set>
 
 using namespace clang;
+extern std::string G_CryptoFuncName;
+extern std::vector<std::string> G_ArgClasses;
 
 MaskingASTVisitor::MaskingASTVisitor(ASTContext &Context, Rewriter &R)
     : Context(Context), TheRewriter(R), RandomVarCounter(0), VarFinder(), Masker() {}
 
 bool MaskingASTVisitor::VisitFunctionDecl(FunctionDecl *F) {
-    if (F->hasBody()) {
-        VarFinder.TraverseDecl(F);
-        SensitiveVars = VarFinder.getSensitiveVars();
+    if (F->getNameAsString() == G_CryptoFuncName) {
+        InCryptoFunction = true;
+        if (F->hasBody()) {
+            VarFinder.TraverseDecl(F);
+            SensitiveVars = VarFinder.getSensitiveVars();
+        }
     }
     return true;
 }
 
+
 bool MaskingASTVisitor::VisitBinaryOperator(BinaryOperator *Op) {
+    if (!InCryptoFunction) return true; // Only apply masking inside the crypto function
+
     Expr *LHS = Op->getLHS()->IgnoreParenImpCasts();
     Expr *RHS = Op->getRHS()->IgnoreParenImpCasts();
 
@@ -25,7 +35,9 @@ bool MaskingASTVisitor::VisitBinaryOperator(BinaryOperator *Op) {
         if (Op->isAdditiveOp() || Op->getOpcode() == BO_Xor) {
             maskLinearOperation(Op);
         } else {
-            maskNonlinearOperation(Op);
+            // Nonlinear, need SMT-based synthesis
+            std::string maskedCode = Masker.maskNonlinearOperation(Op, RandomVarCounter);
+            TheRewriter.ReplaceText(Op->getSourceRange(), maskedCode);
         }
     }
     return true;
@@ -39,18 +51,15 @@ bool MaskingASTVisitor::isSensitive(Expr *E) {
     return false;
 }
 
-void MaskingASTVisitor::maskLinearOperation(clang::BinaryOperator *Op) {
-    // Apply linear masking
-    // Generate random variable
+void MaskingASTVisitor::maskLinearOperation(BinaryOperator *Op) {
+    // Simple linear masking:
     std::string RandomVarName = "r" + std::to_string(RandomVarCounter++);
-    std::string RandomVarDecl = "int " + RandomVarName + " = get_random();\n";
+    std::string RandomVarDecl = "bool " + RandomVarName + " = get_random();\n";
 
-    // Insert random variable declaration
     TheRewriter.InsertTextBefore(Op->getExprLoc(), RandomVarDecl);
 
-    // Replace operands with masked versions
-    std::string LHSCode = Op->getLHS()->getSourceRange().printToString(TheRewriter.getSourceMgr());
-    std::string RHSCode = Op->getRHS()->getSourceRange().printToString(TheRewriter.getSourceMgr());
+    std::string LHSCode = TheRewriter.getRewrittenText(Op->getLHS()->getSourceRange());
+    std::string RHSCode = TheRewriter.getRewrittenText(Op->getRHS()->getSourceRange());
 
     if (isSensitive(Op->getLHS())) {
         std::string MaskedLHS = "(" + LHSCode + " ^ " + RandomVarName + ")";
@@ -61,14 +70,6 @@ void MaskingASTVisitor::maskLinearOperation(clang::BinaryOperator *Op) {
         std::string MaskedRHS = "(" + RHSCode + " ^ " + RandomVarName + ")";
         TheRewriter.ReplaceText(Op->getRHS()->getSourceRange(), MaskedRHS);
     }
-
-    // Adjust operation if necessary
-    // For linear operations, the operation remains the same
-}
-
-void MaskingASTVisitor::maskNonlinearOperation(BinaryOperator *Op) {
-    std::string MaskedCode = Masker.maskNonlinearOperation(Op, RandomVarCounter);
-    TheRewriter.ReplaceText(Op->getSourceRange(), MaskedCode);
 }
 
 MaskingASTConsumer::MaskingASTConsumer(Rewriter &R)

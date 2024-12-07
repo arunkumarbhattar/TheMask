@@ -19,6 +19,13 @@ include_directories(${CLANG_INCLUDE_DIRS})
 include_directories(${Z3_INCLUDE_DIRS})
 add_definitions(${LLVM_DEFINITIONS})
 
+# Remove llvm_map_components_to_libnames to avoid overlapping libraries
+# llvm_map_components_to_libnames(LLVM_LIBS
+#         Support
+#         Core
+#         IRReader
+# )
+
 set(SOURCE_FILES
         src/main.cpp
         src/MaskingASTVisitor.cpp
@@ -30,20 +37,13 @@ set(SOURCE_FILES
 
 add_executable(masking_rewriter ${SOURCE_FILES})
 
-llvm_map_components_to_libnames(LLVM_LIBS
-        Support
-        Core
-        IRReader
-)
-
+# Link against LLVM and essential Clang libraries
 target_link_libraries(masking_rewriter
-        ${LLVM_LIBS}
+        LLVM
         clangTooling
         clangBasic
         clangASTMatchers
         clangAST
-        clangFrontend
         clangRewrite
-        clangRewriteFrontend
         ${Z3_LIBRARIES}
 )
