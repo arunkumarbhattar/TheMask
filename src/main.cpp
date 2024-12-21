@@ -11,13 +11,13 @@ static llvm::cl::OptionCategory MaskingCategory("masking options");
 static llvm::cl::opt<std::string> CryptoFuncName(
     "crypto-func",
     llvm::cl::desc("Name of the cryptographic function"),
-    llvm::cl::Required, // This ensures the option must be specified
+    llvm::cl::Required, // Must be specified
     llvm::cl::cat(MaskingCategory));
 
 static llvm::cl::list<std::string> ArgClasses(
     "arg-class",
     llvm::cl::desc("List of argument classes (key, public, random) in order"),
-    llvm::cl::OneOrMore, // This ensures at least one value must be specified
+    llvm::cl::OneOrMore, // At least one
     llvm::cl::cat(MaskingCategory));
 
 // Global variables to store the configuration
@@ -26,7 +26,8 @@ std::vector<std::string> G_ArgClasses;
 
 int main(int argc, const char **argv) {
     // Parse command-line options
-    auto ExpectedParser = CommonOptionsParser::create(argc, argv, MaskingCategory);
+    auto ExpectedParser =
+        CommonOptionsParser::create(argc, argv, MaskingCategory);
     if (!ExpectedParser) {
         llvm::errs() << "Error parsing command-line arguments: "
                      << llvm::toString(ExpectedParser.takeError()) << "\n";
@@ -41,6 +42,7 @@ int main(int argc, const char **argv) {
     }
 
     // Run the Clang tool
-    ClangTool Tool(OptionsParser.getCompilations(), OptionsParser.getSourcePathList());
+    ClangTool Tool(OptionsParser.getCompilations(),
+                   OptionsParser.getSourcePathList());
     return Tool.run(newFrontendActionFactory<MaskingFrontendAction>().get());
 }

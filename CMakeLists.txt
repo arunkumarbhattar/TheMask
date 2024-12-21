@@ -14,32 +14,37 @@ find_package(Z3 REQUIRED)
 message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
 message(STATUS "Using LLVMConfig.cmake in: ${LLVM_DIR}")
 
-include_directories(${LLVM_INCLUDE_DIRS})
-include_directories(${CLANG_INCLUDE_DIRS})
-include_directories(${Z3_INCLUDE_DIRS})
-add_definitions(${LLVM_DEFINITIONS})
-
-# Remove llvm_map_components_to_libnames to avoid overlapping libraries
-# llvm_map_components_to_libnames(LLVM_LIBS
-#         Support
-#         Core
-#         IRReader
-# )
+# Define LLVM components you need
+llvm_map_components_to_libnames(LLVM_LIBS
+        Support
+        Core
+        IRReader
+        # Add other required components here
+)
 
 set(SOURCE_FILES
         src/main.cpp
         src/MaskingASTVisitor.cpp
         src/MaskingFrontendAction.cpp
         src/SensitiveVariableFinder.cpp
-        src/SMTMasker.cpp
         src/Verifier.cpp
 )
 
 add_executable(masking_rewriter ${SOURCE_FILES})
 
-# Link against LLVM and essential Clang libraries
+# Use target_include_directories and target_compile_definitions
+target_include_directories(masking_rewriter PRIVATE
+        ${LLVM_INCLUDE_DIRS}
+        ${CLANG_INCLUDE_DIRS}
+        ${Z3_INCLUDE_DIRS}
+)
+
+target_compile_definitions(masking_rewriter PRIVATE
+        ${LLVM_DEFINITIONS}
+)
+
+# Link against Clang and Z3 libraries without explicitly linking LLVM
 target_link_libraries(masking_rewriter
-        LLVM
         clangTooling
         clangBasic
         clangASTMatchers
@@ -47,3 +52,6 @@ target_link_libraries(masking_rewriter
         clangRewrite
         ${Z3_LIBRARIES}
 )
+
+# Optionally, set compile features
+target_compile_features(masking_rewriter PRIVATE cxx_std_17)

@@ -9,12 +9,14 @@ void MaskingFrontendAction::EndSourceFileAction() {
     TheRewriter.getEditBuffer(TheRewriter.getSourceMgr().getMainFileID())
         .write(llvm::outs());
 
-    // Dump AST of the modified translation unit
-    getCompilerInstance().getASTContext().getTranslationUnitDecl()->dump(llvm::outs());
+    // Optionally dump the final AST
+    getCompilerInstance().getASTContext()
+        .getTranslationUnitDecl()->dump(llvm::outs());
 }
 
-std::unique_ptr<ASTConsumer> MaskingFrontendAction::CreateASTConsumer(
-    CompilerInstance &CI, llvm::StringRef file) {
+std::unique_ptr<ASTConsumer>
+MaskingFrontendAction::CreateASTConsumer(CompilerInstance &CI,
+                                         llvm::StringRef file) {
     TheRewriter.setSourceMgr(CI.getSourceManager(), CI.getLangOpts());
     return std::make_unique<MaskingASTConsumer>(TheRewriter);
 }

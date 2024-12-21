@@ -6,7 +6,6 @@
 #include "clang/Rewrite/Core/Rewriter.h"
 #include "clang/AST/ASTContext.h"
 #include "SensitiveVariableFinder.h"
-#include "SMTMasker.h"
 #include "clang/Tooling/Tooling.h"
 
 #include <set>
@@ -24,11 +23,19 @@ private:
     clang::Rewriter &TheRewriter;
     std::set<clang::VarDecl *> SensitiveVars;
     SensitiveVariableFinder VarFinder;
-    SMTMasker Masker;
     int RandomVarCounter;
 
     bool isSensitive(clang::Expr *Expr);
-    void maskLinearOperation(clang::BinaryOperator *Op);
+
+    void maskNonlinearAND(clang::BinaryOperator *Op, bool LHSIsSensitive, bool RHSIsSensitive);
+
+    void maskNonlinearOR(clang::BinaryOperator *Op, bool LHSIsSensitive, bool RHSIsSensitive);
+
+    std::string createRandomVarDecl();
+
+    std::string OpSeparator();
+
+    void maskLinearOperation(clang::BinaryOperator *Op, bool LHSIsSensitive, bool RHSIsSensitive);
     void maskNonlinearOperation(clang::BinaryOperator *Op);
 };
 

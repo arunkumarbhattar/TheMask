@@ -1,5 +1,7 @@
 // src/SensitiveVariableFinder.cpp
 #include "SensitiveVariableFinder.h"
+#include <set>
+#include "clang/AST/Decl.h"
 
 using namespace clang;
 extern std::string G_CryptoFuncName;
@@ -20,8 +22,8 @@ bool SensitiveVariableFinder::VisitVarDecl(VarDecl *Decl) {
                         // Mark as sensitive
                         SensitiveVars.insert(Decl);
                     }
-                    // if cls == "public", do nothing special
-                    // if cls == "random", treat differently if needed in other parts
+                    // if cls == "public", do nothing
+                    // if cls == "random", etc.
                     break;
                 }
             }
@@ -33,7 +35,7 @@ bool SensitiveVariableFinder::VisitVarDecl(VarDecl *Decl) {
 bool SensitiveVariableFinder::isSensitive(Expr *E) {
     if (auto DRE = dyn_cast<DeclRefExpr>(E)) {
         VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl());
-        return SensitiveVars.count(VD) > 0;
+        return (VD && SensitiveVars.count(VD) > 0);
     }
     return false;
 }
