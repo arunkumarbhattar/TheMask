@@ -1,53 +1,61 @@
-#ifndef MASKINGASTVISITOR_H
-#define MASKINGASTVISITOR_H
+// src/MaskingASTVisitor.h
+#ifndef MASKING_AST_VISITOR_H
+#define MASKING_AST_VISITOR_H
 
-#include "clang/AST/ASTConsumer.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Rewrite/Core/Rewriter.h"
-#include "clang/AST/ASTContext.h"
 #include "SensitiveVariableFinder.h"
-#include "clang/Tooling/Tooling.h"
-
+#include <string>
 #include <set>
+#include <unordered_map>
+#include <clang/AST/ASTConsumer.h>
 
 class MaskingASTVisitor : public clang::RecursiveASTVisitor<MaskingASTVisitor> {
 public:
     MaskingASTVisitor(clang::ASTContext &Context, clang::Rewriter &R);
 
     bool VisitFunctionDecl(clang::FunctionDecl *F);
+    bool VisitDeclRefExpr(clang::DeclRefExpr *DRE);
     bool VisitBinaryOperator(clang::BinaryOperator *Op);
 
 private:
-    bool InCryptoFunction = false;
     clang::ASTContext &Context;
     clang::Rewriter &TheRewriter;
-    std::set<clang::VarDecl *> SensitiveVars;
+
+    bool InCryptoFunction = false;
+    int TempCounter = 0;
+
+    // For each key param, we store "k_m"
+    std::unordered_map<clang::VarDecl*, std::string> MaskedParamMap;
+    std::set<clang::VarDecl*> SensitiveVars;
+
     SensitiveVariableFinder VarFinder;
-    int RandomVarCounter;
 
-    bool isSensitive(clang::Expr *Expr);
+    void splitKeyParams(clang::FunctionDecl *F);
 
-    void maskNonlinearAND(clang::BinaryOperator *Op, bool LHSIsSensitive, bool RHSIsSensitive);
+    bool isSensitive(clang::Expr *E);
+    bool isSensitiveVar(clang::VarDecl *VD);
 
-    void maskNonlinearOR(clang::BinaryOperator *Op, bool LHSIsSensitive, bool RHSIsSensitive);
+    // Gadgets
+    void maskAND(clang::BinaryOperator *Op);
+    void maskOR(clang::BinaryOperator *Op);
+    void maskXOR(clang::BinaryOperator *Op);
+    void maskADD(clang::BinaryOperator *Op);
+    void maskShiftLeft(clang::BinaryOperator *Op);
 
-    std::string createRandomVarDecl();
-
-    std::string OpSeparator();
-
-    void maskLinearOperation(clang::BinaryOperator *Op, bool LHSIsSensitive, bool RHSIsSensitive);
-    void maskNonlinearOperation(clang::BinaryOperator *Op);
+    // ephemeral "Masked32 tmpM = mask32_and(...);" inserted before statement
+    // then expression => "(int)mask32_demask(tmpM)"
+    std::string createEphemeralMaskCall(const std::string &callExpr,
+                                        clang::BinaryOperator *Op);
 };
 
 class MaskingASTConsumer : public clang::ASTConsumer {
 public:
-    MaskingASTConsumer(clang::Rewriter &R);
-
+    explicit MaskingASTConsumer(clang::Rewriter &R);
     void HandleTranslationUnit(clang::ASTContext &Context) override;
-
 private:
-    MaskingASTVisitor *Visitor;
     clang::Rewriter &TheRewriter;
+    MaskingASTVisitor *Visitor;
 };
 
-#endif // MASKINGASTVISITOR_H
+#endif

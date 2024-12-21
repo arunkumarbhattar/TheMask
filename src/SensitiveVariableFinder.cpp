@@ -1,29 +1,25 @@
 // src/SensitiveVariableFinder.cpp
 #include "SensitiveVariableFinder.h"
-#include <set>
 #include "clang/AST/Decl.h"
 
-using namespace clang;
 extern std::string G_CryptoFuncName;
 extern std::vector<std::string> G_ArgClasses;
 
+using namespace clang;
+
 SensitiveVariableFinder::SensitiveVariableFinder() {}
 
-bool SensitiveVariableFinder::VisitVarDecl(VarDecl *Decl) {
-    // Check if this VarDecl is a parameter of the cryptographic function.
-    if (auto *FD = dyn_cast<FunctionDecl>(Decl->getDeclContext())) {
+bool SensitiveVariableFinder::VisitVarDecl(VarDecl *VD) {
+    if (auto *FD = dyn_cast<FunctionDecl>(VD->getDeclContext())) {
         if (FD->getNameAsString() == G_CryptoFuncName) {
-            // Identify the index of this parameter
+            // check param index
             for (unsigned i = 0; i < FD->getNumParams(); i++) {
-                if (FD->getParamDecl(i) == Decl) {
-                    // Found the matching parameter
-                    std::string cls = G_ArgClasses[i];
-                    if (cls == "key") {
-                        // Mark as sensitive
-                        SensitiveVars.insert(Decl);
+                if (FD->getParamDecl(i) == VD) {
+                    if (i < G_ArgClasses.size()) {
+                        if (G_ArgClasses[i] == "key") {
+                            SensitiveVars.insert(VD);
+                        }
                     }
-                    // if cls == "public", do nothing
-                    // if cls == "random", etc.
                     break;
                 }
             }
@@ -33,9 +29,10 @@ bool SensitiveVariableFinder::VisitVarDecl(VarDecl *Decl) {
 }
 
 bool SensitiveVariableFinder::isSensitive(Expr *E) {
-    if (auto DRE = dyn_cast<DeclRefExpr>(E)) {
-        VarDecl *VD = dyn_cast<VarDecl>(DRE->getDecl());
-        return (VD && SensitiveVars.count(VD) > 0);
+    if (auto *DRE = dyn_cast<DeclRefExpr>(E)) {
+        if (auto *VD = dyn_cast<VarDecl>(DRE->getDecl())) {
+            return (SensitiveVars.count(VD) > 0);
+        }
     }
     return false;
 }

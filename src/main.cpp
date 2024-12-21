@@ -1,3 +1,4 @@
+// src/main.cpp
 #include "MaskingFrontendAction.h"
 #include "clang/Tooling/CommonOptionsParser.h"
 #include "clang/Tooling/Tooling.h"
@@ -5,27 +6,25 @@
 
 using namespace clang::tooling;
 
-// Define command-line options
 static llvm::cl::OptionCategory MaskingCategory("masking options");
 
 static llvm::cl::opt<std::string> CryptoFuncName(
     "crypto-func",
     llvm::cl::desc("Name of the cryptographic function"),
-    llvm::cl::Required, // Must be specified
+    llvm::cl::Required,
     llvm::cl::cat(MaskingCategory));
 
 static llvm::cl::list<std::string> ArgClasses(
     "arg-class",
-    llvm::cl::desc("List of argument classes (key, public, random) in order"),
-    llvm::cl::OneOrMore, // At least one
+    llvm::cl::desc("List of argument classes (key, public, random, etc.)"),
+    llvm::cl::OneOrMore,
     llvm::cl::cat(MaskingCategory));
 
-// Global variables to store the configuration
+// Global config
 std::string G_CryptoFuncName;
 std::vector<std::string> G_ArgClasses;
 
 int main(int argc, const char **argv) {
-    // Parse command-line options
     auto ExpectedParser =
         CommonOptionsParser::create(argc, argv, MaskingCategory);
     if (!ExpectedParser) {
@@ -35,13 +34,13 @@ int main(int argc, const char **argv) {
     }
     CommonOptionsParser &OptionsParser = ExpectedParser.get();
 
-    // Store in global variables
+    // store config
     G_CryptoFuncName = CryptoFuncName;
-    for (const auto &ArgClass : ArgClasses) {
-        G_ArgClasses.push_back(ArgClass);
+    for (auto &cls : ArgClasses) {
+        G_ArgClasses.push_back(cls);
     }
 
-    // Run the Clang tool
+    // run the Clang tool
     ClangTool Tool(OptionsParser.getCompilations(),
                    OptionsParser.getSourcePathList());
     return Tool.run(newFrontendActionFactory<MaskingFrontendAction>().get());
